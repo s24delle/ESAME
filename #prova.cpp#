@@ -1,0 +1,151 @@
+#include <iostream.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <math.h>
+#include <stdio.h>
+#include "vector.h"
+#include "chem.h"
+
+
+/*
+Unit cell duplicator.  Read the unit cell from a file in .xyz fomrat and 
+reproduce it in space to another file.  The unit cell must be 
+rectangular.  One corner is at the origin and the other is read from the 
+user.  Atoms with any coordinate equal to 0 must be ommitted as these are 
+duplicated elsewhere in the unit cell.  The program compensates for this.
+*/
+/*
+This code may be freely distributed and modified.  I would be interested in hearing
+from you if you use this code.  You can send me (Andrew Schultz) email at:
+ajschult@mindpsring.com
+*/
+
+void rep (char fname[20], molecule it, int rx, int ry, int rz, vector c);
+
+// function to take unit cell and write it to file multiple times
+
+void rep (char fname[20], molecule it, int rx, int ry, int rz, vector c)
+{
+   FILE *fnum;
+   char ofname[25];        // output file name
+   int i, j, k, l;         // counters
+   int tot;                // total # of atoms
+   molecule temp(1);
+   strcpy (ofname, "r");
+   strcat (ofname, fname);
+   if ((fnum=fopen (ofname, "w"))==NULL) return;
+
+   tot=it.num*rx*ry*rz;
+// Change tot to account for atoms on corners, axes and faces
+   for (i=1; i<it.num+1; i++)
+   {
+//  Look for a atom at the far corner
+      if (it[i]==c)
+      {
+         tot+=(rx+1)*(ry+1)*(rz+1)-rx*ry*rz;
+      }
+//  Look for atoms at the x axis
+       else if ((it[i][1]==c[1]) && (it[i][2]==c[2]))
+      {
+         tot+=rx*(ry+1)*(rz+1)-rx*ry*rz;
+      }
+//  Look for atoms at the y axis
+       else if ((it[i][0]==c[0]) && (it[i][2]==c[2]))
+      {
+         tot+=(rx+1)*ry*(rz+1)-rx*ry*rz;
+      }
+//  Look for atoms at the z axis
+       else if ((it[i][0]==c[0]) && (it[i][1]==c[1]))
+      {
+         tot+=(rx+1)*(ry+1)*rz-rx*ry*rz;
+      }
+//  Look for atoms on xy face
+       else if (it[i][2]==c[2])
+      {
+         tot+=rx*ry;
+      }
+//  Look for atoms on xz face
+       else if (it[i][1]==c[1])
+      {
+         tot+=rx*rz;
+      }
+//  Look for atoms on yz face
+       else if (it[i][0]==c[0])
+      {
+         tot+=ry*rz;
+      }
+   }
+
+   fprintf (fnum, "%d\n%s", tot, it.n);    // header
+   
+   for (i=-1; i<rx; i++)
+   {
+      for (j=-1; j<ry; j++)
+      {
+         for (k=-1; k<rz; k++)
+         {
+            for (l=1; l<it.num+1; l++)
+            {
+               // check for atom with negative coordinates
+               if ((temp[0][0]=it[l][0]+i*c[0]) < 0) continue;
+               if ((temp[0][1]=it[l][1]+j*c[1]) < 0) continue;
+               if ((temp[0][2]=it[l][2]+k*c[2]) < 0) continue;
+               // write it to the file
+               fprintf (fnum, " %c%c %f %f %f\n", it.a[l-1], it.a2[l-1],
+                    temp[l][0], temp[l][1], temp[l][2]);
+            }
+         }
+      }
+   }
+   fclose (fnum);
+}
+
+
+void main ()
+{
+   FILE *fnum;
+   char fname[20];      // input file name
+   double s;            // coordinate expansion factor
+   int i, num;          // counter, number of atoms
+   int rx, ry, rz;      // number of unit cells in x, y, z directions
+   vector c (3);        // coordinates of unit cell corner
+
+   printf ("Filename: ");
+   scanf ("%s", fname);
+   if ((fnum=fopen (fname, "r"))==NULL) exit(1);
+   fscanf (fnum, "%d\n", &num);
+   printf ("%d atoms\n", num);
+   molecule it (num);
+   fgets (it.n, 69, fnum);
+   for (i=1; i < num+1; i++)
+   {
+      fscanf (fnum, " %c%c %lf %lf %lf\n", &it.a[i-1], &it.a2[i-1], 
+           &it[i][0], &it[i][1], &it[i][2]);
+      printf ("%c%c %g %g %g\n", it.a[i-1], it.a2[i-1], it[i][0], it[i][1], 
+           it[i][2]);
+      if ((it[i][0]>0) && (it[i][1]>0) && (it[i][2]>0)) continue;
+      cout << "All atoms must have all coordinates greater than 0" << endl;
+      exit (1);
+   }
+   fclose (fnum);
+   while (!((c[0]>0) && (c[1]>0) && (c[2]>0)))
+   {
+      cout << "What are the coordinates of the outer corner of the " <<
+         "unit cell? (x y z) "<<endl;
+      cin >> c[0] >> c[1] >> c[2];
+   }
+   printf ("coordinate expansion ratio: ");
+   scanf ("%lf", &s);
+   for (i=1; i<num+1; i++)
+   {
+      it[i]=it[i]*s;
+   }
+   c=c*s;
+   while (!((rx>0) && (ry>0) && (rz>0)))
+   {
+      cout << "Number of unit cells in x y z direction:";
+      cin >> rx >> ry >> rz;
+   }
+   rep (fname, it, rx, ry, rz, c);
+}
